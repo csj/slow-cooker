@@ -1,4 +1,4 @@
-import type { GameState, Frame } from './types';
+import type { GameState, Frame, AnimatingKind } from './types';
 import type { GameAction } from './actions';
 import type { Direction, CarriedItem } from '../state/types';
 
@@ -27,14 +27,15 @@ function advanceOneTurn(state: FrameLike): Frame {
   const next = JSON.parse(JSON.stringify(state)) as Frame;
   next.currentTurn += 1;
 
-  const m = next.stationStates.microwave;
-  if (m.contents?.type === 'plate' && m.contents.contents.slice && !m.contents.contents.slice.heated) {
-    m.heatProgress++;
-    if (m.heatProgress >= m.heatTime) {
-      m.contents = {
-        ...m.contents,
-        contents: { slice: { ...m.contents.contents.slice, heated: true } }
-      };
+  for (const m of Object.values(next.stationStates.microwaves)) {
+    if (m.contents?.type === 'plate' && m.contents.contents.slice && !m.contents.contents.slice.heated) {
+      m.heatProgress++;
+      if (m.heatProgress >= m.heatTime) {
+        m.contents = {
+          ...m.contents,
+          contents: { slice: { ...m.contents.contents.slice, heated: true } }
+        };
+      }
     }
   }
 
@@ -98,14 +99,15 @@ function applyEquipmentInteraction(
     if ((chef.carried.type === 'plate' && chef.carried.contents === null) || (chef.carried.type === 'clean_plates' && chef.carried.count === 1)) {
       chef.carried = { type: 'plate', contents: { slice: { flavour: cakeFlavour, heated: false } } };
     }
-  } else if (tileType === 'microwave') {
-    if (chef.carried.type === 'plate' && chef.carried.contents?.slice && !chef.carried.contents.slice.heated && ss.microwave.contents === null) {
-      ss.microwave.contents = chef.carried;
+  } else if (tileType === 'microwave' && stationId) {
+    const m = ss.microwaves[stationId];
+    if (m && chef.carried.type === 'plate' && chef.carried.contents?.slice && !chef.carried.contents.slice.heated && m.contents === null) {
+      m.contents = chef.carried;
       chef.carried = { type: 'nothing' };
-    } else if (chef.carried.type === 'nothing' && ss.microwave.contents?.type === 'plate' && ss.microwave.contents.contents.slice?.heated) {
-      chef.carried = ss.microwave.contents;
-      ss.microwave.contents = null;
-      ss.microwave.heatProgress = 0;
+    } else if (m && chef.carried.type === 'nothing' && m.contents?.type === 'plate' && m.contents.contents.slice?.heated) {
+      chef.carried = m.contents;
+      m.contents = null;
+      m.heatProgress = 0;
     }
   } else if (tileType === 'delivery_window') {
     if (chef.carried.type === 'plate' && chef.carried.contents.slice?.heated) {
@@ -173,17 +175,23 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.frameStack.length <= 1) return state;
       const top = state.frameStack[state.frameStack.length - 1]!;
       const finalized: Frame = { ...top, lastCommittedTurn: top.currentTurn };
-      return { ...state, frameStack: [finalized], actionSequence: [] };
+      return { ...state, frameStack: [finalized], actionSequence: [], displayFrameIndex: null, animating: null };
     }
     case 'COMMIT_UP_TO': {
       const idx = Math.min(action.frameIndex, state.frameStack.length - 1);
       if (idx < 0) return state;
       const frame = state.frameStack[idx]!;
       const finalized: Frame = { ...frame, lastCommittedTurn: frame.currentTurn };
-      return { ...state, frameStack: [finalized], actionSequence: [] };
+      return { ...state, frameStack: [finalized], actionSequence: [], displayFrameIndex: null, animating: null };
     }
     case 'ADVANCE_TURN':
       return state;
+    case 'ANIMATION_STEP':
+      return { ...state, displayFrameIndex: action.frameIndex };
+    case 'ANIMATION_END':
+      return { ...state, displayFrameIndex: null, animating: null };
+    case 'ANIMATION_START':
+      return { ...state, displayFrameIndex: action.frameIndex, animating: action.kind };
     default:
       return state;
   }

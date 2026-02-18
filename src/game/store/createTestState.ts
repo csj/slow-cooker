@@ -5,17 +5,22 @@ import { createWorldGrid, getChefSpawnPositions } from '../state/world';
 import type { GameState, Frame } from './types';
 import type { CarriedItem } from '../state/types';
 
-export const TABLE_IDS = { first: 'st6', second: 'st7' } as const;
+export const TABLE_IDS = { first: 'st2', second: 'st3' } as const;
+export const MICROWAVE_IDS = { first: 'st1', second: 'st4' } as const;
+
+const defaultMicrowave = (): { contents: CarriedItem | null; heatProgress: number; heatTime: number } =>
+  ({ contents: null, heatProgress: 0, heatTime: 4 });
 
 export function createTestFrame(overrides: {
   chef?: { x: number; y: number; carried: CarriedItem };
   sink?: { dirtyCount: number; cleanCount: number };
-  microwave?: { contents: CarriedItem | null; heatProgress?: number };
+  microwaves?: Partial<Record<string, { contents: CarriedItem | null; heatProgress?: number }>>;
   delivery?: { dirtyCount: number };
   tables?: Partial<Record<string, CarriedItem | null>>;
 }): Frame {
   const grid = createWorldGrid();
   const cakeBoxes: Record<string, 'vanilla' | 'chocolate'> = {};
+  const microwaves: Record<string, { contents: CarriedItem | null; heatProgress: number; heatTime: number }> = {};
   const tables: Record<string, CarriedItem | null> = {};
 
   for (let y = 0; y < grid.length; y++) {
@@ -24,6 +29,14 @@ export function createTestFrame(overrides: {
       if (tile.stationId) {
         if (tile.type === 'cake_box' && tile.cakeFlavour) {
           cakeBoxes[tile.stationId] = tile.cakeFlavour;
+        }
+        if (tile.type === 'microwave') {
+          const o = overrides.microwaves?.[tile.stationId];
+          microwaves[tile.stationId] = {
+            ...defaultMicrowave(),
+            contents: o?.contents ?? null,
+            heatProgress: o?.heatProgress ?? 0
+          };
         }
         if (tile.type === 'table') {
           tables[tile.stationId] = null;
@@ -37,11 +50,7 @@ export function createTestFrame(overrides: {
     stationStates: {
       sink: overrides.sink ?? { dirtyCount: 0, cleanCount: 3 },
       cakeBoxes,
-      microwave: {
-        contents: overrides.microwave?.contents ?? null,
-        heatProgress: overrides.microwave?.heatProgress ?? 0,
-        heatTime: 4
-      },
+      microwaves,
       tables: { ...tables, ...overrides.tables },
       delivery: overrides.delivery ?? { dirtyCount: 0 }
     },
@@ -65,6 +74,8 @@ export function createTestState(frameOverrides: Parameters<typeof createTestFram
   return {
     frameStack: [createTestFrame(frameOverrides)],
     actionSequence: [],
-    activeChefIndex: 0
+    activeChefIndex: 0,
+    displayFrameIndex: null,
+    animating: null
   };
 }

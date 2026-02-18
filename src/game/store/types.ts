@@ -8,11 +8,11 @@ export type Frame = {
   stationStates: {
     sink: { dirtyCount: number; cleanCount: number };
     cakeBoxes: Record<string, CakeFlavour>;
-    microwave: {
+    microwaves: Record<string, {
       contents: CarriedItem | null;
       heatProgress: number;
       heatTime: number;
-    };
+    }>;
     tables: Record<string, CarriedItem | null>;
     delivery: { dirtyCount: number };
   };
@@ -29,10 +29,16 @@ export type Frame = {
   orders: Array<{ id: string; revealTurn: number; requirements: string }>;
 };
 
+export type AnimatingKind = 'commit' | 'switch_chef';
+
 export type GameState = {
   /** Stack of complete world frames. Top = current planning state. */
   frameStack: Frame[];
   /** Sequence of queued actions (for display). Parallel to frameStack growth. */
   actionSequence: QueuedAction[];
   activeChefIndex: number;
+  /** During animation, which frame to show. null = show current (top). */
+  displayFrameIndex: number | null;
+  /** What animation is running, if any. */
+  animating: AnimatingKind | null;
 };

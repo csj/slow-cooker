@@ -4,6 +4,7 @@ import type { GameState, Frame } from './types';
 function createBaseFrame(): Frame {
   const grid = createWorldGrid();
   const cakeBoxes: Record<string, 'vanilla' | 'chocolate'> = {};
+  const microwaves: Record<string, { contents: import('../state/types').CarriedItem | null; heatProgress: number; heatTime: number }> = {};
   const tables: Record<string, import('../state/types').CarriedItem | null> = {};
 
   for (let y = 0; y < grid.length; y++) {
@@ -12,6 +13,9 @@ function createBaseFrame(): Frame {
       if (tile.stationId) {
         if (tile.type === 'cake_box' && tile.cakeFlavour) {
           cakeBoxes[tile.stationId] = tile.cakeFlavour;
+        }
+        if (tile.type === 'microwave') {
+          microwaves[tile.stationId] = { contents: null, heatProgress: 0, heatTime: 4 };
         }
         if (tile.type === 'table') {
           tables[tile.stationId] = null;
@@ -25,7 +29,7 @@ function createBaseFrame(): Frame {
     stationStates: {
       sink: { dirtyCount: 0, cleanCount: 3 },
       cakeBoxes,
-      microwave: { contents: null, heatProgress: 0, heatTime: 4 },
+      microwaves,
       tables,
       delivery: { dirtyCount: 0 }
     },
@@ -47,6 +51,8 @@ export function createInitialState(): GameState {
   return {
     frameStack: [createBaseFrame()],
     actionSequence: [],
-    activeChefIndex: 0
+    activeChefIndex: 0,
+    displayFrameIndex: null,
+    animating: null
   };
 }

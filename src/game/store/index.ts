@@ -1,10 +1,9 @@
-import { createStore } from 'redux';
+import { createStore, applyMiddleware, compose } from 'redux';
+import { thunk } from 'redux-thunk';
 import { devToolsEnhancer } from '@redux-devtools/extension';
 import { gameReducer } from './reducer';
 import { createInitialState } from './initialState';
 
-export const store = createStore(
-  gameReducer,
-  createInitialState(),
-  devToolsEnhancer({ name: 'Slow Cooker' })
-);
+const enhancer = compose(applyMiddleware(thunk), devToolsEnhancer({ name: 'Slow Cooker' }));
+
+export const store = createStore(gameReducer, createInitialState(), enhancer);

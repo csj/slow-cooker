@@ -1,19 +1,12 @@
 import { Scene } from 'phaser';
 import { store } from '../store';
 import * as actions from '../store/actions';
-import { getCurrentFrame } from '../store/selectors';
+import { getDisplayFrame } from '../store/selectors';
 import { TILE_SIZE } from '../state/world';
 import type { Direction } from '../state/types';
-import type { Frame } from '../store/types';
-
-const DX = [0, 1, 0, -1];
-const DY = [-1, 0, 1, 0];
-
-const STEP_MS = 200;
 
 export class GameScene extends Scene {
   private unsubscribe!: () => void;
-  private animatingCommit = false;
 
   constructor() {
     super('GameScene');
@@ -46,53 +39,18 @@ export class GameScene extends Scene {
     keys.LEFT?.on('down', () => this.dispatchDir(3));
     keys.RIGHT?.on('down', () => this.dispatchDir(1));
 
-    keys.TAB?.on('down', () => store.dispatch(actions.switchChef()));
+    keys.TAB?.on('down', () => store.dispatch(actions.startSwitchChefAnimation()));
     keys.BACKSPACE?.on('down', () => store.dispatch(actions.unwind()));
-    keys.SPACE?.on('down', () => this.onCommit());
+    keys.SPACE?.on('down', () => store.dispatch(actions.startCommitAnimation()));
   }
 
   private dispatchDir(dir: Direction) {
     store.dispatch(actions.queueMove(dir));
   }
 
-  private onCommit() {
-    if (this.animatingCommit) return;
-    const state = store.getState();
-    if (state.frameStack.length <= 1) {
-      store.dispatch(actions.commit());
-      return;
-    }
-    this.animatingCommit = true;
-    const stack = [...state.frameStack];
-    const showFrame = (frame: Frame) => this.render(store.getState(), frame);
-
-    showFrame(stack[0]!);
-    this.time.delayedCall(STEP_MS, () => this.stepFrames(1, stack, showFrame));
-  }
-
-  private stepFrames(i: number, stack: Frame[], showFrame: (f: Frame) => void) {
-    if (i >= stack.length) {
-      this.finishCommit(stack.length - 1);
-      return;
-    }
-    const frame = stack[i]!;
-    const hasNewInfo = frame.orders.some((o) => o.revealTurn === frame.currentTurn);
-    showFrame(frame);
-    if (hasNewInfo || i === stack.length - 1) {
-      this.finishCommit(i);
-      return;
-    }
-    this.time.delayedCall(STEP_MS, () => this.stepFrames(i + 1, stack, showFrame));
-  }
-
-  private finishCommit(frameIndex: number) {
-    this.animatingCommit = false;
-    store.dispatch(actions.commitUpTo(frameIndex));
-  }
-
-  private render(state: ReturnType<typeof store.getState>, overrideFrame?: Frame) {
+  private render(state: ReturnType<typeof store.getState>) {
     this.children.removeAll(true);
-    const frame = overrideFrame ?? getCurrentFrame(state);
+    const frame = getDisplayFrame(state);
 
     const ox = 64;
     const oy = 64;
@@ -159,13 +117,14 @@ export class GameScene extends Scene {
     const ss = frame.stationStates;
     if (tile.type === 'sink_take') return ss.sink.cleanCount > 0 ? `${ss.sink.cleanCount}` : '';
     if (tile.type === 'sink_wash') return ss.sink.dirtyCount > 0 ? `${ss.sink.dirtyCount}` : '';
-    if (tile.type === 'microwave') {
-      const c = ss.microwave.contents;
+    if (tile.type === 'microwave' && tile.stationId) {
+      const m = ss.microwaves[tile.stationId];
+      if (!m) return '';
+      const c = m.contents;
       if (!c) return '';
       if (c.type === 'plate' && c.contents?.slice) {
         if (c.contents.slice.heated) return '✓';
-        const { heatProgress, heatTime } = ss.microwave;
-        return `${heatProgress}/${heatTime}`;
+        return `${m.heatProgress}/${m.heatTime}`;
       }
       return '';
     }

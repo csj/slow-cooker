@@ -9,7 +9,7 @@ export const TABLE_IDS = { first: 'st2', second: 'st3' } as const;
 export const MICROWAVE_IDS = { first: 'st1', second: 'st4' } as const;
 
 const defaultMicrowave = (): { contents: CarriedItem | null; heatProgress: number; heatTime: number } =>
-  ({ contents: null, heatProgress: 0, heatTime: 4 });
+  ({ contents: null, heatProgress: 0, heatTime: 0 });
 
 export function createTestFrame(overrides: {
   chef?: { x: number; y: number; carried: CarriedItem };
@@ -35,7 +35,11 @@ export function createTestFrame(overrides: {
           microwaves[tile.stationId] = {
             ...defaultMicrowave(),
             contents: o?.contents ?? null,
-            heatProgress: o?.heatProgress ?? 0
+            heatProgress: o?.heatProgress ?? 0,
+            heatTime: (() => {
+              const f = o?.contents?.type === 'plate' ? o.contents.contents[0] : undefined;
+              return f && 'heatTime' in f ? (f as { heatTime: number }).heatTime : 0;
+            })()
           };
         }
         if (tile.type === 'table') {
@@ -62,8 +66,6 @@ export function createTestFrame(overrides: {
       actionQueue: [],
       carried: id === 0 && overrides.chef?.carried ? overrides.chef.carried : { type: 'nothing' as const }
     })),
-    lastCommittedTurn: 0,
-    currentTurn: 0,
     orders: []
   };
 

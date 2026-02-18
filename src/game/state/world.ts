@@ -11,9 +11,9 @@ export type WorldTile = {
 // 6x3: row 0 = SWVMCD, row 1 = floor, row 2 = tables + chef
 const MAP_ASCII = [
   'V..M..T',
-  'T.@M@.T',
-  'T..S..T',
-  'C.TW..D'
+  'T.@S@.T',
+  'T.TW..T',
+  'C..M..D'
 ];
 
 export const TILE_SIZE = 48;

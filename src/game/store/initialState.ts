@@ -15,7 +15,7 @@ function createBaseFrame(): Frame {
           cakeBoxes[tile.stationId] = tile.cakeFlavour;
         }
         if (tile.type === 'microwave') {
-          microwaves[tile.stationId] = { contents: null, heatProgress: 0, heatTime: 4 };
+          microwaves[tile.stationId] = { contents: null, heatProgress: 0, heatTime: 0 };
         }
         if (tile.type === 'table') {
           tables[tile.stationId] = null;
@@ -41,8 +41,6 @@ function createBaseFrame(): Frame {
       actionQueue: [],
       carried: { type: 'nothing' as const }
     })),
-    lastCommittedTurn: 0,
-    currentTurn: 0,
     orders: []
   };
 }

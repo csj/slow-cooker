@@ -8,11 +8,10 @@ export type Frame = {
   stationStates: {
     sink: { dirtyCount: number; cleanCount: number };
     cakeBoxes: Record<string, CakeFlavour>;
-    microwaves: Record<string, {
-      contents: CarriedItem | null;
-      heatProgress: number;
-      heatTime: number;
-    }>;
+    microwaves: Record<
+      string,
+      { contents: CarriedItem | null; heatProgress: number; heatTime: number }
+    >;
     tables: Record<string, CarriedItem | null>;
     delivery: { dirtyCount: number };
   };
@@ -24,8 +23,6 @@ export type Frame = {
     actionQueue: Array<{ type: string; dir: Direction }>;
     carried: CarriedItem;
   }>;
-  lastCommittedTurn: number;
-  currentTurn: number;
   orders: Array<{ id: string; revealTurn: number; requirements: string }>;
 };
 

@@ -1,94 +1,183 @@
 /**
- * Table-driven tests: holding X, moving onto Y → expected(chef, equipment) is true.
+ * Equipment interaction tests: hold X, interact with equipment Y → expected(chef, equipment).
  */
 import { describe, it, expect } from 'vitest';
-import { gameReducer } from './reducer';
-import { getCurrentFrame } from './selectors';
-import { createTestState, TABLE_IDS, MICROWAVE_IDS } from './createTestState';
-import * as actions from './actions';
+import { applyEquipmentInteraction, type Equipment } from './equipment';
 import type { CarriedItem } from '../state/types';
-import type { Frame } from './types';
-
-type Tile = 'sink_take' | 'sink_wash' | 'cake_box' | 'microwave' | 'delivery' | 'table';
-
-// Map: row 0 V..M..T, row 1 T.@M@.T, row 2 T..S..T, row 3 C.TW..D
-const TILE_POS: Record<Tile, { x: number; y: number; dir: number }> = {
-  sink_take: { x: 3, y: 1, dir: 2 },
-  sink_wash: { x: 3, y: 2, dir: 2 },
-  cake_box: { x: 1, y: 0, dir: 3 },
-  microwave: { x: 2, y: 0, dir: 1 },
-  delivery: { x: 6, y: 2, dir: 2 },
-  table: { x: 1, y: 1, dir: 3 }
-};
-
-export type EquipmentState = Frame['stationStates'];
-
-function run(holding: CarriedItem, moving_onto: Tile, setup?: Partial<EquipmentState>): { holding: CarriedItem; equipment: EquipmentState } {
-  const pos = TILE_POS[moving_onto];
-  const state = createTestState({
-    chef: { x: pos.x, y: pos.y, carried: holding },
-    ...setup
-  });
-  const next = gameReducer(state, actions.queueMove(pos.dir));
-  const frame = getCurrentFrame(next);
-  return { holding: frame.chefs[0]!.carried, equipment: frame.stationStates };
-}
 
 type Case = {
   holding: CarriedItem;
-  moving_onto: Tile;
-  setup?: Partial<EquipmentState>;
-  expected: (h: CarriedItem, eq: EquipmentState) => boolean;
+  equipment: Equipment;
+  expected: (carried: CarriedItem, equipment: Equipment) => boolean;
 };
 
 const cases: Case[] = [
-  { holding: { type: 'nothing' }, moving_onto: 'sink_take', setup: { sink: { dirtyCount: 0, cleanCount: 3 } },
-    expected: (h, eq) => h.type === 'clean_plates' && h.count === 3 && eq.sink.cleanCount === 0 },
-  { holding: { type: 'nothing' }, moving_onto: 'sink_take', setup: { sink: { dirtyCount: 2, cleanCount: 0 } },
-    expected: (h, eq) => h.type === 'nothing' && eq.sink.cleanCount === 0 },
-  { holding: { type: 'clean_plates', count: 2 }, moving_onto: 'sink_take', setup: { sink: { dirtyCount: 0, cleanCount: 3 } },
-    expected: (h, eq) => h.type === 'clean_plates' && h.count === 5 && eq.sink.cleanCount === 0 },
-  { holding: { type: 'dirty_plates', count: 4 }, moving_onto: 'sink_wash', setup: { sink: { dirtyCount: 1, cleanCount: 2 } },
-    expected: (h, eq) => h.type === 'nothing' && eq.sink.dirtyCount === 5 },
-  { holding: { type: 'nothing' }, moving_onto: 'sink_wash', setup: { sink: { dirtyCount: 3, cleanCount: 0 } },
-    expected: (h, eq) => eq.sink.dirtyCount === 2 && eq.sink.cleanCount === 1 },
-  { holding: { type: 'nothing' }, moving_onto: 'sink_wash', setup: { sink: { dirtyCount: 0, cleanCount: 5 } },
-    expected: (h, eq) => eq.sink.dirtyCount === 0 && eq.sink.cleanCount === 5 },
-  { holding: { type: 'clean_plates', count: 2 }, moving_onto: 'sink_wash', setup: { sink: { dirtyCount: 2, cleanCount: 1 } },
-    expected: (h, eq) => h.type === 'clean_plates' && h.count === 2 },
-  { holding: { type: 'plate', contents: null }, moving_onto: 'cake_box',
-    expected: (h, eq) => h.type === 'plate' && h.contents?.slice?.flavour === 'vanilla' && !h.contents.slice.heated },
-  { holding: { type: 'clean_plates', count: 3 }, moving_onto: 'cake_box',
-    expected: (h, eq) => h.type === 'clean_plates' && h.count === 3 },
-  { holding: { type: 'nothing' }, moving_onto: 'cake_box',
-    expected: (h, eq) => h.type === 'nothing' },
-  { holding: { type: 'plate', contents: { slice: { flavour: 'vanilla', heated: false } } }, moving_onto: 'microwave',
-    expected: (h, eq) => h.type === 'nothing' && eq.microwaves[MICROWAVE_IDS.first]?.contents?.type === 'plate' },
-  { holding: { type: 'nothing' }, moving_onto: 'microwave', setup: { microwaves: { [MICROWAVE_IDS.first]: { contents: { type: 'plate', contents: { slice: { flavour: 'vanilla', heated: true } } }, heatProgress: 4 } } },
-    expected: (h, eq) => h.type === 'plate' && eq.microwaves[MICROWAVE_IDS.first]?.contents === null },
-  { holding: { type: 'plate', contents: null }, moving_onto: 'microwave', setup: { microwaves: { [MICROWAVE_IDS.first]: { contents: { type: 'plate', contents: { slice: { flavour: 'vanilla', heated: true } } } } } },
-    expected: (h, eq) => h.type === 'plate' && h.contents === null && eq.microwaves[MICROWAVE_IDS.first]?.contents !== null },
-  { holding: { type: 'nothing' }, moving_onto: 'microwave', setup: { microwaves: { [MICROWAVE_IDS.first]: { contents: { type: 'plate', contents: { slice: { flavour: 'vanilla', heated: false } } }, heatProgress: 2 } } },
-    expected: (h, eq) => h.type === 'nothing' && eq.microwaves[MICROWAVE_IDS.first]?.contents?.type === 'plate' && !(eq.microwaves[MICROWAVE_IDS.first]!.contents as { contents: { slice: { heated: boolean } } }).contents.slice.heated },
-  { holding: { type: 'plate', contents: { slice: { flavour: 'vanilla', heated: true } } }, moving_onto: 'microwave',
-    expected: (h, eq) => h.type === 'plate' && h.contents?.slice?.heated && eq.microwaves[MICROWAVE_IDS.first]?.contents === null },
-  { holding: { type: 'plate', contents: { slice: { flavour: 'chocolate', heated: true } } }, moving_onto: 'delivery',
-    expected: (h, eq) => h.type === 'nothing' && eq.delivery.dirtyCount === 1 },
-  { holding: { type: 'nothing' }, moving_onto: 'delivery', setup: { delivery: { dirtyCount: 3 } },
-    expected: (h, eq) => h.type === 'dirty_plates' && h.count === 3 && eq.delivery.dirtyCount === 0 },
-  { holding: { type: 'clean_plates', count: 3 }, moving_onto: 'table', setup: { tables: { [TABLE_IDS.second]: null } },
-    expected: (h, eq) => h.type === 'clean_plates' && h.count === 2 && eq.tables[TABLE_IDS.second]?.type === 'plate' && (eq.tables[TABLE_IDS.second] as { contents: unknown })?.contents === null },
-  { holding: { type: 'plate', contents: null }, moving_onto: 'table', setup: { tables: { [TABLE_IDS.second]: null } },
-    expected: (h, eq) => h.type === 'nothing' && eq.tables[TABLE_IDS.second]?.type === 'plate' && (eq.tables[TABLE_IDS.second] as { contents: unknown })?.contents === null },
-  { holding: { type: 'nothing' }, moving_onto: 'table', setup: { tables: { [TABLE_IDS.second]: { type: 'plate', contents: { slice: { flavour: 'vanilla', heated: true } } } } },
-    expected: (h, eq) => h.type === 'plate' && eq.tables[TABLE_IDS.second] === null },
+  {
+    holding: { type: 'nothing' },
+    equipment: { type: 'sink_take', sink: { dirtyCount: 0, cleanCount: 3 } },
+    expected: (c, e) => c.type === 'clean_plates' && c.count === 3 && e.type === 'sink_take' && e.sink.cleanCount === 0
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: { type: 'sink_take', sink: { dirtyCount: 2, cleanCount: 0 } },
+    expected: (c, e) => c.type === 'nothing' && e.sink.cleanCount === 0
+  },
+  {
+    holding: { type: 'clean_plates', count: 2 },
+    equipment: { type: 'sink_take', sink: { dirtyCount: 0, cleanCount: 3 } },
+    expected: (c, e) => c.type === 'clean_plates' && c.count === 5 && e.sink.cleanCount === 0
+  },
+  {
+    holding: { type: 'dirty_plates', count: 4 },
+    equipment: { type: 'sink_wash', sink: { dirtyCount: 1, cleanCount: 2 } },
+    expected: (c, e) => c.type === 'nothing' && e.type === 'sink_wash' && e.sink.dirtyCount === 5
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: { type: 'sink_wash', sink: { dirtyCount: 3, cleanCount: 0 } },
+    expected: (c, e) => e.sink.dirtyCount === 2 && e.sink.cleanCount === 1
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: { type: 'sink_wash', sink: { dirtyCount: 0, cleanCount: 5 } },
+    expected: (c, e) => e.sink.dirtyCount === 0 && e.sink.cleanCount === 5
+  },
+  {
+    holding: { type: 'clean_plates', count: 2 },
+    equipment: { type: 'sink_wash', sink: { dirtyCount: 2, cleanCount: 1 } },
+    expected: (c) => c.type === 'clean_plates' && c.count === 2
+  },
+  {
+    holding: { type: 'plate', contents: [] },
+    equipment: { type: 'cake_box', flavour: 'vanilla' },
+    expected: (c) =>
+      c.type === 'plate' &&
+      c.contents[0]?.type === 'slice' &&
+      c.contents[0].flavour === 'vanilla' &&
+      !c.contents[0].heated &&
+      c.contents[0].heatTime === 3
+  },
+  {
+    holding: { type: 'clean_plates', count: 3 },
+    equipment: { type: 'cake_box', flavour: 'vanilla' },
+    expected: (c) => c.type === 'clean_plates' && c.count === 3
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: { type: 'cake_box', flavour: 'vanilla' },
+    expected: (c) => c.type === 'nothing'
+  },
+  {
+    holding: { type: 'plate', contents: [] },
+    equipment: { type: 'cake_box', flavour: 'chocolate' },
+    expected: (c) =>
+      c.type === 'plate' &&
+      c.contents[0]?.type === 'slice' &&
+      c.contents[0].flavour === 'chocolate' &&
+      c.contents[0].heatTime === 5
+  },
+  {
+    holding: {
+      type: 'plate',
+      contents: [{ type: 'slice', flavour: 'vanilla', heated: false, heatTime: 3 }]
+    },
+    equipment: { type: 'cake_box', flavour: 'vanilla' },
+    expected: (c) =>
+      c.type === 'plate' && c.contents.length === 1 && c.contents[0]?.flavour === 'vanilla'
+  },
+  {
+    holding: {
+      type: 'plate',
+      contents: [{ type: 'slice', flavour: 'vanilla', heated: false, heatTime: 3 }]
+    },
+    equipment: { type: 'cake_box', flavour: 'chocolate' },
+    expected: (c) =>
+      c.type === 'plate' && c.contents.length === 1 && c.contents[0]?.flavour === 'vanilla'
+  },
+  {
+    holding: { type: 'plate', contents: [{ type: 'slice', flavour: 'vanilla', heated: false, heatTime: 3 }] },
+    equipment: { type: 'microwave', contents: null, heatProgress: 0, heatTime: 0 },
+    expected: (c, e) => c.type === 'nothing' && e.contents?.type === 'plate'
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: {
+      type: 'microwave',
+      contents: { type: 'plate', contents: [{ type: 'slice', flavour: 'vanilla', heated: true, heatTime: 3 }] },
+      heatProgress: 3,
+      heatTime: 3
+    },
+    expected: (c, e) => c.type === 'plate' && e.contents === null
+  },
+  {
+    holding: { type: 'plate', contents: [] },
+    equipment: {
+      type: 'microwave',
+      contents: { type: 'plate', contents: [{ type: 'slice', flavour: 'vanilla', heated: true, heatTime: 3 }] },
+      heatProgress: 3,
+      heatTime: 3
+    },
+    expected: (c, e) =>
+      c.type === 'plate' && c.contents.length === 0 && e.contents !== null
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: {
+      type: 'microwave',
+      contents: { type: 'plate', contents: [{ type: 'slice', flavour: 'vanilla', heated: false, heatTime: 3 }] },
+      heatProgress: 2,
+      heatTime: 3
+    },
+    expected: (c, e) =>
+      c.type === 'nothing' && e.contents?.type === 'plate' && !e.contents.contents[0]?.heated
+  },
+  {
+    holding: { type: 'plate', contents: [{ type: 'slice', flavour: 'vanilla', heated: true, heatTime: 3 }] },
+    equipment: { type: 'microwave', contents: null, heatProgress: 0, heatTime: 0 },
+    expected: (c, e) => c.type === 'plate' && c.contents[0]?.heated && e.contents === null
+  },
+  {
+    holding: { type: 'plate', contents: [{ type: 'slice', flavour: 'chocolate', heated: true, heatTime: 5 }] },
+    equipment: { type: 'delivery', dirtyCount: 0 },
+    expected: (c, e) => c.type === 'nothing' && e.dirtyCount === 1
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: { type: 'delivery', dirtyCount: 3 },
+    expected: (c, e) => c.type === 'dirty_plates' && c.count === 3 && e.dirtyCount === 0
+  },
+  {
+    holding: { type: 'clean_plates', count: 3 },
+    equipment: { type: 'table', contents: null },
+    expected: (c, e) =>
+      c.type === 'clean_plates' &&
+      c.count === 2 &&
+      e.contents?.type === 'plate' &&
+      e.contents.contents.length === 0
+  },
+  {
+    holding: { type: 'plate', contents: [] },
+    equipment: { type: 'table', contents: null },
+    expected: (c, e) =>
+      c.type === 'nothing' &&
+      e.contents?.type === 'plate' &&
+      e.contents.contents.length === 0
+  },
+  {
+    holding: { type: 'nothing' },
+    equipment: {
+      type: 'table',
+      contents: { type: 'plate', contents: [{ type: 'slice', flavour: 'vanilla', heated: true, heatTime: 3 }] }
+    },
+    expected: (c, e) => c.type === 'plate' && e.contents === null
+  }
 ];
 
-describe('hold X, move onto Y → expected(h, eq)', () => {
+describe('applyEquipmentInteraction', () => {
   cases.forEach((c, i) => {
-    it(`case ${i + 1}: hold ${JSON.stringify(c.holding)}, onto ${c.moving_onto}`, () => {
-      const { holding, equipment } = run(c.holding, c.moving_onto, c.setup);
-      expect(c.expected(holding, equipment)).toBe(true);
+    it(`case ${i + 1}: hold ${JSON.stringify(c.holding)}, ${c.equipment.type}`, () => {
+      const { carried, equipment } = applyEquipmentInteraction({ carried: c.holding }, c.equipment);
+      expect(c.expected(carried, equipment)).toBe(true);
     });
   });
 });

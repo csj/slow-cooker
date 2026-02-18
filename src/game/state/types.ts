@@ -2,15 +2,15 @@ export type Direction = 0 | 1 | 2 | 3; // N E S W
 
 export type CakeFlavour = 'vanilla' | 'chocolate';
 
-export type PlateContents =
-  | { slice: { flavour: CakeFlavour; heated: boolean } }
-  // future: | { soup: ... } | ...
+export type Food =
+  | { type: 'slice'; flavour: CakeFlavour; heated: boolean; heatTime: number }
+  // future: | { type: 'soup'; heatTime: number; heated: boolean; ... }
   ;
 
 export type CarriedItem =
   | { type: 'nothing' }
   | { type: 'clean_plates'; count: number }
-  | { type: 'plate'; contents: PlateContents | null }
+  | { type: 'plate'; contents: Food[] }
   | { type: 'dirty_plates'; count: number };
 
 export type QueuedAction = { type: 'Move'; dir: Direction };
@@ -32,8 +32,8 @@ export type CakeBoxStation = {
 
 export type MicrowaveStation = {
   contents: CarriedItem | null;
-  heatProgress: number; // 0..heatTime, when >= heatTime then "done"
-  heatTime: number;
+  heatProgress: number;
+  heatTime: number; // from the food inside when added, not intrinsic
 };
 
 export type TableStation = {

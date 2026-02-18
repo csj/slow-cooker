@@ -96,7 +96,7 @@ export class GameScene extends Scene {
       }).setOrigin(0.5);
     }
 
-    this.add.text(16, 16, `Turn: ${frame.currentTurn} | Committed: ${frame.lastCommittedTurn}`, {
+    this.add.text(16, 16, `Turn: ${state.displayTickOverride ?? state.displayTick} | Committed: ${state.committedFrameIndex}`, {
       fontSize: '16px',
       color: '#fff'
     });
@@ -126,8 +126,9 @@ export class GameScene extends Scene {
       if (!m) return '';
       const c = m.contents;
       if (!c) return '';
-      if (c.type === 'plate' && c.contents?.slice) {
-        if (c.contents.slice.heated) return '✓';
+      const food = c.type === 'plate' ? c.contents[0] : undefined;
+      if (food && 'heated' in food) {
+        if (food.heated) return '✓';
         return `${m.heatProgress}/${m.heatTime}`;
       }
       return '';
@@ -136,7 +137,10 @@ export class GameScene extends Scene {
     if (tile.type === 'table' && tile.stationId) {
       const item = ss.tables[tile.stationId];
       if (!item) return '';
-      if (item.type === 'plate') return item.contents?.slice ? `${item.contents.slice.flavour[0]}${item.contents.slice.heated ? '+' : ''}` : '1';
+      if (item.type === 'plate') {
+        const f = item.contents[0];
+        return f?.type === 'slice' ? `${f.flavour[0]}${f.heated ? '+' : ''}` : '1';
+      }
       if (item.type === 'clean_plates') return `${item.count}`;
       return '';
     }
@@ -146,7 +150,10 @@ export class GameScene extends Scene {
   private carriedLabel(c: import('../state/types').CarriedItem): string {
     if (c.type === 'nothing') return '';
     if (c.type === 'clean_plates') return `plate x${c.count}`;
-    if (c.type === 'plate') return c.contents?.slice ? `${c.contents.slice.flavour[0]}${c.contents.slice.heated ? '+' : ''}` : 'plate';
+    if (c.type === 'plate') {
+      const f = c.contents[0];
+      return f?.type === 'slice' ? `${f.flavour[0]}${f.heated ? '+' : ''}` : 'plate';
+    }
     if (c.type === 'dirty_plates') return `dirty x${c.count}`;
     return '?';
   }

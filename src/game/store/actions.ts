@@ -21,8 +21,7 @@ export const switchChef = (): GameAction => ({ type: 'SWITCH_CHEF' });
 export const commit = (): GameAction => ({ type: 'COMMIT' });
 
 const STEP_MS = 200;
-const ZIP_MS = 100;
-const SLOW_REPLAY_FRAMES = 3;
+const SWITCH_STEP_MS = 100;
 
 type Thunk = (dispatch: (a: GameAction) => void, getState: () => import('./types').GameState) => void;
 
@@ -74,42 +73,23 @@ export function startSwitchChefAnimation(): Thunk {
     const target = getTargetTickForChef(state, nextChef);
     dispatch(switchChef());
     if (state.frameStack.length <= 1 || current === target) {
-      if (current !== target) {
-        dispatch({ type: 'SWITCH_CHEF_FINISH', targetTick: target });
-      }
+      dispatch({ type: 'SWITCH_CHEF_FINISH', targetTick: target });
       return;
     }
-    const slowZoneStart = Math.max(0, target - SLOW_REPLAY_FRAMES);
     let i = current;
-    let inSlowPhase = false;
     const step = () => {
       const s = getState();
       if (s.animating !== 'switch_chef') return;
-      if (!inSlowPhase && i > slowZoneStart) {
-        i--;
-        dispatch({ type: 'ANIMATION_STEP', frameIndex: i });
-        if (i === target) {
-          dispatch({ type: 'ANIMATION_END' });
-          dispatch({ type: 'SWITCH_CHEF_FINISH', targetTick: target });
-          return;
-        }
-        if (i === slowZoneStart) inSlowPhase = true;
-        setTimeout(step, ZIP_MS);
-      } else if (i < target) {
-        i++;
-        dispatch({ type: 'ANIMATION_STEP', frameIndex: i });
-        if (i === target) {
-          dispatch({ type: 'ANIMATION_END' });
-          dispatch({ type: 'SWITCH_CHEF_FINISH', targetTick: target });
-          return;
-        }
-        setTimeout(step, STEP_MS);
-      } else {
+      if (i === target) {
         dispatch({ type: 'ANIMATION_END' });
         dispatch({ type: 'SWITCH_CHEF_FINISH', targetTick: target });
+        return;
       }
+      i += i > target ? -1 : 1;
+      dispatch({ type: 'ANIMATION_STEP', frameIndex: i });
+      setTimeout(step, SWITCH_STEP_MS);
     };
     dispatch({ type: 'ANIMATION_START', kind: 'switch_chef', frameIndex: i });
-    setTimeout(step, ZIP_MS);
+    setTimeout(step, SWITCH_STEP_MS);
   };
 }

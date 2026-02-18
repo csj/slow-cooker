@@ -27,21 +27,6 @@ function isEquipment(type: string): boolean {
 function advanceOneTurn(state: FrameLike): Frame {
   const next = JSON.parse(JSON.stringify(state)) as Frame;
 
-  for (const m of Object.values(next.stationStates.microwaves)) {
-    const plate = m.contents?.type === 'plate' ? m.contents : null;
-    const food = plate?.contents[0];
-    if (food && 'heated' in food && !food.heated) {
-      m.heatProgress++;
-      if (m.heatProgress >= m.heatTime) {
-        const heated = { ...food, heated: true };
-        m.contents = {
-          ...plate!,
-          contents: [heated, ...plate!.contents.slice(1)]
-        };
-      }
-    }
-  }
-
   for (let i = 0; i < next.chefs.length; i++) {
     const chef = next.chefs[i];
     const action = chef.actionQueue[0];
@@ -70,6 +55,21 @@ function advanceOneTurn(state: FrameLike): Frame {
       }
     }
     chef.actionQueue.shift();
+  }
+
+  for (const m of Object.values(next.stationStates.microwaves)) {
+    const plate = m.contents?.type === 'plate' ? m.contents : null;
+    const food = plate?.contents[0];
+    if (food && 'heated' in food && !food.heated) {
+      m.heatProgress++;
+      if (m.heatProgress >= m.heatTime) {
+        const heated = { ...food, heated: true };
+        m.contents = {
+          ...plate!,
+          contents: [heated, ...plate!.contents.slice(1)]
+        };
+      }
+    }
   }
 
   return next;

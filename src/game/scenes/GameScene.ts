@@ -86,6 +86,10 @@ export class GameScene extends Scene {
       const py = oy + chef.y * TILE_SIZE + TILE_SIZE / 2;
       const active = frame.chefs.indexOf(chef) === state.activeChefIndex;
       this.add.circle(px, py, TILE_SIZE / 3, active ? 0xff6b6b : 0x4ecdc4);
+      this.add.text(px, py + TILE_SIZE / 4, String(chef.id + 1), {
+        fontSize: '14px',
+        color: '#fff'
+      }).setOrigin(0.5);
       this.add.text(px, py - 20, this.carriedLabel(chef.carried), {
         fontSize: '12px',
         color: '#fff'

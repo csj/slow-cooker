@@ -71,11 +71,15 @@ export function createTestFrame(overrides: {
 }
 
 export function createTestState(frameOverrides: Parameters<typeof createTestFrame>[0]): GameState {
+  const base = createTestFrame(frameOverrides);
   return {
-    frameStack: [createTestFrame(frameOverrides)],
-    actionSequence: [],
+    baseFrame: base,
+    chefQueues: base.chefs.map(() => []),
+    frameStack: [base],
+    committedFrameIndex: 0,
     activeChefIndex: 0,
-    displayFrameIndex: null,
+    displayTick: 0,
+    displayTickOverride: null,
     animating: null
   };
 }

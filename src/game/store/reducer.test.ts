@@ -84,20 +84,6 @@ const cases: Case[] = [
     expected: (h, eq) => h.type === 'plate' && eq.tables[TABLE_IDS.second] === null },
 ];
 
-describe('COMMIT_UP_TO', () => {
-  it('commits up to given frame index', () => {
-    let state = createTestState({ chef: { x: 4, y: 1, carried: { type: 'nothing' } } });
-    state = gameReducer(state, actions.queueMove(1));
-    state = gameReducer(state, actions.queueMove(1));
-    expect(state.frameStack.length).toBe(3);
-    const targetFrame = state.frameStack[1]!;
-    const after = gameReducer(state, actions.commitUpTo(1));
-    expect(after.frameStack.length).toBe(1);
-    expect(getCurrentFrame(after).currentTurn).toBe(targetFrame.currentTurn);
-    expect(after.actionSequence).toEqual([]);
-  });
-});
-
 describe('hold X, move onto Y → expected(h, eq)', () => {
   cases.forEach((c, i) => {
     it(`case ${i + 1}: hold ${JSON.stringify(c.holding)}, onto ${c.moving_onto}`, () => {

@@ -139,59 +139,95 @@ function applyEquipmentInteraction(
   }
 }
 
-function applyAction(frame: Frame, chefIndex: number, action: { type: string; dir: number }): Frame {
-  const withAction = JSON.parse(JSON.stringify(frame)) as Frame;
-  withAction.chefs[chefIndex]!.actionQueue = [action];
-  return advanceOneTurn(withAction);
+/** Apply one tick: each chef's tickIndex-th action, in chef order. */
+function simulateOneTick(
+  frame: Frame,
+  chefQueues: { type: string; dir: number }[][],
+  tickIndex: number
+): Frame {
+  const withActions = JSON.parse(JSON.stringify(frame)) as Frame;
+  for (let i = 0; i < withActions.chefs.length; i++) {
+    const action = chefQueues[i]?.[tickIndex];
+    withActions.chefs[i]!.actionQueue = action ? [action] : [];
+  }
+  return advanceOneTurn(withActions);
 }
 
 export function gameReducer(state: GameState, action: GameAction): GameState {
-  const currentFrame = state.frameStack[state.frameStack.length - 1]!;
+  const numChefs = state.baseFrame.chefs.length;
+  const topFrame = state.frameStack[state.frameStack.length - 1]!;
 
   switch (action.type) {
     case 'QUEUE_MOVE': {
+      const tick = state.displayTick;
       const qa = { type: 'Move' as const, dir: action.dir };
-      const nextFrame = applyAction(currentFrame, state.activeChefIndex, qa);
+      const queues = state.chefQueues.map((q, i) =>
+        i === state.activeChefIndex ? [...q.slice(0, tick), qa] : q
+      );
+      const prevFrame = state.frameStack[tick] ?? topFrame;
+      const nextFrame = simulateOneTick(prevFrame, queues, tick);
+      const newStack = state.frameStack.slice(0, tick + 1);
+      newStack.push(nextFrame);
       return {
         ...state,
-        frameStack: [...state.frameStack, nextFrame],
-        actionSequence: [...state.actionSequence, qa]
+        chefQueues: queues,
+        frameStack: newStack,
+        displayTick: tick + 1
       };
     }
     case 'UNWIND': {
-      if (state.frameStack.length <= 1) return state;
+      const tick = state.displayTick - 1;
+      if (tick < state.committedFrameIndex) return state;
+      if (state.frameStack.length <= tick + 1) return state;
+      const queues = state.chefQueues.map((q, i) =>
+        i === state.activeChefIndex ? q.slice(0, -1) : q
+      );
       return {
         ...state,
+        chefQueues: queues,
         frameStack: state.frameStack.slice(0, -1),
-        actionSequence: state.actionSequence.slice(0, -1)
+        displayTick: tick
       };
     }
     case 'SWITCH_CHEF':
       return {
         ...state,
-        activeChefIndex: (state.activeChefIndex + 1) % currentFrame.chefs.length
+        activeChefIndex: (state.activeChefIndex + 1) % numChefs
       };
-    case 'COMMIT': {
-      if (state.frameStack.length <= 1) return state;
-      const top = state.frameStack[state.frameStack.length - 1]!;
-      const finalized: Frame = { ...top, lastCommittedTurn: top.currentTurn };
-      return { ...state, frameStack: [finalized], actionSequence: [], displayFrameIndex: null, animating: null };
-    }
-    case 'COMMIT_UP_TO': {
+    case 'COMMIT':
+      return state;
+    case 'SET_DISPLAY_TICK':
+      return { ...state, displayTick: action.frameIndex };
+    case 'COMMIT_FINISH': {
       const idx = Math.min(action.frameIndex, state.frameStack.length - 1);
       if (idx < 0) return state;
       const frame = state.frameStack[idx]!;
-      const finalized: Frame = { ...frame, lastCommittedTurn: frame.currentTurn };
-      return { ...state, frameStack: [finalized], actionSequence: [], displayFrameIndex: null, animating: null };
+      const base = { ...frame, lastCommittedTurn: frame.currentTurn };
+      return {
+        ...state,
+        baseFrame: base,
+        committedFrameIndex: idx,
+        displayTick: idx,
+        displayTickOverride: null,
+        animating: null
+      };
     }
+    case 'SWITCH_CHEF_FINISH':
+      return {
+        ...state,
+        frameStack: state.frameStack.slice(0, action.targetTick + 1),
+        displayTick: action.targetTick,
+        displayTickOverride: null,
+        animating: null
+      };
     case 'ADVANCE_TURN':
       return state;
     case 'ANIMATION_STEP':
-      return { ...state, displayFrameIndex: action.frameIndex };
+      return { ...state, displayTickOverride: action.frameIndex };
     case 'ANIMATION_END':
-      return { ...state, displayFrameIndex: null, animating: null };
+      return { ...state, displayTickOverride: null, animating: null };
     case 'ANIMATION_START':
-      return { ...state, displayFrameIndex: action.frameIndex, animating: action.kind };
+      return { ...state, displayTickOverride: action.frameIndex, animating: action.kind };
     default:
       return state;
   }

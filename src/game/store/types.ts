@@ -32,13 +32,17 @@ export type Frame = {
 export type AnimatingKind = 'commit' | 'switch_chef';
 
 export type GameState = {
-  /** Stack of complete world frames. Top = current planning state. */
+  /** Committed base frame. frameStack[committedFrameIndex] = baseFrame. */
+  baseFrame: Frame;
+  /** Per-chef queues. Indices match frames. Persist for full game. */
+  chefQueues: QueuedAction[][];
+  /** Full history. frameStack[t]=state after t ticks. */
   frameStack: Frame[];
-  /** Sequence of queued actions (for display). Parallel to frameStack growth. */
-  actionSequence: QueuedAction[];
+  /** Last committed frame index. UNWIND cannot go past this. */
+  committedFrameIndex: number;
   activeChefIndex: number;
-  /** During animation, which frame to show. null = show current (top). */
-  displayFrameIndex: number | null;
-  /** What animation is running, if any. */
+  displayTick: number;
+  /** During animation. null = use displayTick. */
+  displayTickOverride: number | null;
   animating: AnimatingKind | null;
 };

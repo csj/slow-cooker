@@ -48,11 +48,15 @@ function createBaseFrame(): Frame {
 }
 
 export function createInitialState(): GameState {
+  const base = createBaseFrame();
   return {
-    frameStack: [createBaseFrame()],
-    actionSequence: [],
+    baseFrame: base,
+    chefQueues: base.chefs.map(() => []),
+    frameStack: [base],
+    committedFrameIndex: 0,
     activeChefIndex: 0,
-    displayFrameIndex: null,
+    displayTick: 0,
+    displayTickOverride: null,
     animating: null
   };
 }
